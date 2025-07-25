@@ -1,0 +1,115 @@
+/* SmartSelectionGraph.css */
+.smart-graph-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f8fafc;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.graph-header {
+  padding: 16px 24px;
+  background-color: #1e293b;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.graph-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.info {
+  display: flex;
+  gap: 16px;
+  font-size: 0.9rem;
+  color: #cbd5e1;
+}
+
+.tips {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.graph-container {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: #f8fafc;
+  cursor: default;
+}
+
+.graph-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.selection-indicator {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  font-size: 0.85rem;
+  color: #1e293b;
+  z-index: 10;
+  border: 1px solid #e2e8f0;
+}
+
+.selection-indicator div {
+  margin: 4px 0;
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 12px;
+  background-color: #e2e8f0;
+  border-top: 1px solid #cbd5e1;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #94a3b8;
+}
+
+.color-box.selected {
+  background-color: #3b82f6;
+}
+
+.color-box.selection {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 1px solid #3b82f6;
+}
