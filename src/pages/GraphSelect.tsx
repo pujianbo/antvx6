@@ -78,69 +78,49 @@ const X6RubberbandDemo: React.FC = () => {
   };
 
   const edgeThreshold = 50; // 距离边距多少触发
-  const panSpeed = 10; // 平移速度  
+  const panSpeed = 5; // 平移速度  
   // 新增状态管理
-  const isPanningRef = useRef(false); // 是否正在框选移动中
-  const isMouseDownRef = useRef(false); // 是否画布中按下了鼠标
-  const mouseDownRef = useRef({ zoom: cavRef.current?.zoom(), clientX: 0, clientY: 0 }); // 鼠标按下时的数据
+  const mouseDownRef = useRef({ mouseDown: false, zoom: cavRef.current?.zoom(), clientX: 0, clientY: 0, left: 0, top: 0 }); // 鼠标按下时的数据
   const mouseMoveRef = useRef({
-    clientX: 0 /* 鼠标按下时的x坐标 */,
-    clientY: 0 /* 鼠标按下时的y坐标 */,
-    moveX: 0 /* 鼠标移动时的x坐标 */,
-    moveY: 0 /* 鼠标移动时的y坐标 */,
-    scaledDx: 0 /* 鼠标移动时，x方向缩放的距离 */,
-    scaledDy: 0 /* 鼠标移动时，y方向缩放的距离 */,
-    width: 0 /* 选框宽度 */,
-    height: 0 /* 选框高度 */,
-    left: 0 /* 选框定位left */,
-    top: 0 /* 选框定位right */,
-    isLeftUp: null /* 鼠标方向是否在左上角 */,
-    directChange: false /* 是否方向改变过 */,
+    clientX: 0 /* 鼠标移动时的x坐标 */,
+    clientY: 0 /* 鼠标移动时的y坐标 */,
     translateX: 0 /* 画布平移的x方向距离 */,
     translateY: 0 /* 画布平移的y方向距离 */,
   }); // 存储画布数据
-  const autoPanRequestRef = useRef<number>(0); // 每帧执行函数返回的定时器id
   // 鼠标按下时修改静态变量
   const handleMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {
-    isMouseDownRef.current = true;
     const { clientX, clientY } = e;
-    mouseDownRef.current = { clientX, clientY, zoom: cavRef.current?.zoom() };
+    Object.assign(mouseDownRef.current, { mouseDown: true, zoom: cavRef.current?.zoom(), clientX, clientY, left: 0, top: 0 });
   };
   // 鼠标释放时停止所有动画
   const handleMouseUp = () => {
     console.log('mouse up');
-    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, left: 0, top: 0, translateX: 0, translateY: 0 });
+    Object.assign(mouseDownRef.current, { mouseDown: false, left: 0, top: 0 });
+    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, translateX: 0, translateY: 0 });
   };
 
-  // const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+  // 鼠标平移
   const handleMouseMove = (e: MouseEvent) => {
-    if (!isMouseDownRef.current || !cavRef.current || !refContainer.current) {
+    if (!mouseDownRef.current.mouseDown || !cavRef.current || !refContainer.current) {
       return;
     }
+
+    // 获取选框元素
     const rubberDom = document.querySelector('.x6-widget-selection-rubberband') as HTMLElement;
-    if (!rubberDom) return; // 判断是否有选中框
+    if (!rubberDom) return;
+
+    // 存储首次定位信息
+    if (!mouseDownRef.current.left) {
+      const style = window.getComputedStyle(rubberDom);
+      const left = parseFloat(style.left) || 0;
+      const top = parseFloat(style.top) || 0;
+      Object.assign(mouseDownRef.current, { left, top, });
+    }
 
     const { clientX, clientY } = e;
     const rect = refContainer.current.getBoundingClientRect();
 
-
-    const style = window.getComputedStyle(rubberDom);
-    const left = parseFloat(style.left) || 0;
-    const top = parseFloat(style.top) || 0;
-
-    const { zoom = 1, clientX: agoCX, clientY: agoCY } = mouseDownRef.current;
-    const { translateX: agoTranslateX, translateY: agoTranslateY, } = mouseMoveRef.current; // 读取上次存的数据
-
-    // 鼠标移动距离
-    const moveX = agoCX ? clientX - agoCX : 0;
-    const moveY = agoCY ? clientY - agoCY : 0;
-
-    // 计算平移方向
-    const directX = moveX > 0 ? 'right' : 'left';
-    const directY = moveY > 0 ? 'bottom' : 'top';
-    const directName = `${directX}-${directY}`;
-
-
+    // 检测靠近边界
     let dx = 0;
     let dy = 0;
     if (clientX - rect.left < edgeThreshold) {
@@ -153,14 +133,25 @@ const X6RubberbandDemo: React.FC = () => {
       dy = -panSpeed; // 下侧边界
     }
 
+    const { zoom = 1, clientX: agoCX, clientY: agoCY, left, top } = mouseDownRef.current;
+    const { translateX: agoTranslateX, translateY: agoTranslateY } = mouseMoveRef.current;
 
+    // 没有靠近边界，且没有平移量的时候，用系统自带的框选功能
+    if (dx === 0 && dy === 0 && agoTranslateX === 0 && agoTranslateY === 0) {
+      return
+    }
 
-    // 应用缩放后的平移量
+    // 鼠标移动距离
+    const moveX = agoCX ? clientX - agoCX : 0;
+    const moveY = agoCY ? clientY - agoCY : 0;
+
+    // 计算平移方向
+    const directX = moveX > 0 ? 'right' : 'left';
+    const directY = moveY > 0 ? 'bottom' : 'top';
+
+    // 缩放的平移量
     const scaledDx = Math.round(dx / zoom);
     const scaledDy = Math.round(dy / zoom);
-
-    Object.assign(mouseMoveRef.current, { clientX, clientY });
-
 
     const mouseMoveX = clientX - agoCX; // 鼠标水平总移动距离
     const mouseMoveY = clientY - agoCY; // 鼠标垂直总移动距离
@@ -170,19 +161,12 @@ const X6RubberbandDemo: React.FC = () => {
     const newWidth = Math.abs(mouseMoveX + translateX);
     const newHeight = Math.abs(mouseMoveY + translateY);
 
-    // 更新定位位置，右下移动时不需要更新位置，其他位置需要更新坐标
-    let newLeft = left + scaledDx;
-    let newTop = top + scaledDy;
+    // 调整定位：右下方向不需要实时更新定位，有偏移才更新。左上需要实时更新定位，不需要计算偏移量
+    const isLeftTop = directX === 'left' || directY === 'top';
+    let newLeft = isLeftTop ? left + mouseMoveX : left - translateX;
+    let newTop = isLeftTop ? top + mouseMoveY : top - translateY;
 
-
-    //这里帮我写一下不同方向时，更新一下left、top指定的坐标
-    if (directName === 'left-top') {
-      //  newLeft = left + scaledDx;
-      //  newTop = left + scaledDx;
-    }
-
-
-    // 更新定位位置
+    // 修改定位
     rubberDom.style.left = `${newLeft}px`;
     rubberDom.style.top = `${newTop}px`;
 
@@ -192,7 +176,7 @@ const X6RubberbandDemo: React.FC = () => {
 
     Object.assign(mouseMoveRef.current, { clientX, clientY, left, top, translateX, translateY }); // 鼠标数据存储，移动距离清零
 
-    // 平移
+    // 平移画布
     if (scaledDx != 0 || scaledDy != 0) {
       cavRef.current.translateBy(scaledDx, scaledDy);
     }
@@ -200,9 +184,6 @@ const X6RubberbandDemo: React.FC = () => {
     e.stopPropagation();
   };
 
-
-  // 修改框大小位置，以及平移操作
-  // eslint-disable-next-line @LV01.50/cmb-quality/complexity
 
   return (
     <div style={{
