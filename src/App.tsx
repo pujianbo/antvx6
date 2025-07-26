@@ -1,5 +1,5 @@
 import { HashRouter, Route, Routes } from 'react-router'
-import HomePage from './pages/Home'
+import HomePage from './pages/GraphSelect'
 import GraphDemo from './pages/GraphDemo'
 import GraphSelect from './pages/GraphSelect'
 import Test from './pages/Test'

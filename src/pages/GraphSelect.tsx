@@ -34,8 +34,10 @@ const X6RubberbandDemo: React.FC = () => {
     createSampleNodes();
 
     document.addEventListener('mouseup', handleMouseUp, true);
+    document.addEventListener('mousemove', handleMouseMove, true);
     return () => {
       document.removeEventListener('mouseup', handleMouseUp, true);
+      document.removeEventListener('mousemove', handleMouseMove, true);
     };
 
   });
@@ -107,14 +109,11 @@ const X6RubberbandDemo: React.FC = () => {
   // 鼠标释放时停止所有动画
   const handleMouseUp = () => {
     console.log('mouse up');
-    isMouseDownRef.current = false;
-    isPanningRef.current = false;
-    Object.assign(mouseMoveRef.current, { width: 0, height: 0, translateX: 0, translateY: 0 });
-    cancelAnimationFrame(autoPanRequestRef.current);
-    autoPanRequestRef.current = 0;
+    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, left: 0, top: 0, translateX: 0, translateY: 0 });
   };
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+  // const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+  const handleMouseMove = (e: MouseEvent) => {
     if (!isMouseDownRef.current || !cavRef.current || !refContainer.current) {
       return;
     }
@@ -124,113 +123,86 @@ const X6RubberbandDemo: React.FC = () => {
     const { clientX, clientY } = e;
     const rect = refContainer.current.getBoundingClientRect();
 
-    const { clientX: agoCX, clientY: agoCY, isLeftUp: agoIsLeftUp } = mouseMoveRef.current; // 读取上次存的数据
+
+    const style = window.getComputedStyle(rubberDom);
+    const left = parseFloat(style.left) || 0;
+    const top = parseFloat(style.top) || 0;
+
+    const { zoom = 1, clientX: agoCX, clientY: agoCY } = mouseDownRef.current;
+    const { translateX: agoTranslateX, translateY: agoTranslateY, } = mouseMoveRef.current; // 读取上次存的数据
 
     // 鼠标移动距离
     const moveX = agoCX ? clientX - agoCX : 0;
     const moveY = agoCY ? clientY - agoCY : 0;
 
     // 计算平移方向
+    const directX = moveX > 0 ? 'right' : 'left';
+    const directY = moveY > 0 ? 'bottom' : 'top';
+    const directName = `${directX}-${directY}`;
+
+
     let dx = 0;
     let dy = 0;
     if (clientX - rect.left < edgeThreshold) {
       dx = panSpeed; // 左侧边界
-    }
-    if (rect.right - clientX < edgeThreshold) {
+    } else if (rect.right - clientX < edgeThreshold) {
       dx = -panSpeed; // 右侧边界
-    }
-    if (clientY - rect.top < edgeThreshold) {
+    } else if (clientY - rect.top < edgeThreshold) {
       dy = panSpeed; // 上侧边界
-    }
-    if (rect.bottom - clientY < edgeThreshold) {
+    } else if (rect.bottom - clientY < edgeThreshold) {
       dy = -panSpeed; // 下侧边界
     }
 
-    const { zoom = 1 } = mouseDownRef.current;
+
 
     // 应用缩放后的平移量
     const scaledDx = Math.round(dx / zoom);
     const scaledDy = Math.round(dy / zoom);
 
-    Object.assign(mouseMoveRef.current, { clientX, clientY, moveX, moveY, scaledDx, scaledDy });
+    Object.assign(mouseMoveRef.current, { clientX, clientY });
 
-    if (dx !== 0 || dy !== 0) {
-      console.log('move');
 
-      const isLeftUp = scaledDx > 0 || scaledDy > 0; // 判断方向是左、上,左上、右下的算法不一致。
-      const directChange = typeof agoIsLeftUp === 'boolean' && agoIsLeftUp !== isLeftUp; // 如果方向发生改变，宽高算法发生改变
+    const mouseMoveX = clientX - agoCX; // 鼠标水平总移动距离
+    const mouseMoveY = clientY - agoCY; // 鼠标垂直总移动距离
+    const translateX = agoTranslateX - scaledDx; // 当前平移水平距离
+    const translateY = agoTranslateY - scaledDy; // 当前平移垂直距离
 
-      Object.assign(mouseMoveRef.current, { isLeftUp, directChange });
+    const newWidth = Math.abs(mouseMoveX + translateX);
+    const newHeight = Math.abs(mouseMoveY + translateY);
 
-      // 初始化宽高
-      if (!mouseMoveRef.current.width) {
-        const style = window.getComputedStyle(rubberDom);
-        const width = parseFloat(style.width) || 0;
-        const height = parseFloat(style.height) || 0;
-        const left = parseFloat(style.left) || 0;
-        const top = parseFloat(style.top) || 0;
+    // 更新定位位置，右下移动时不需要更新位置，其他位置需要更新坐标
+    let newLeft = left + scaledDx;
+    let newTop = top + scaledDy;
 
-        Object.assign(mouseMoveRef.current, { width, height, left, top });
-      }
 
-      // 开始平移
-      if (!isPanningRef.current) {
-        console.log('move-requestAnimationFrame');
-        isPanningRef.current = true;
-        handleAutoPan();
-      }
-      e.stopPropagation();
-    } else {
-      // 停止平移
-      console.log('stop');
-
-      isPanningRef.current = false;
-      cancelAnimationFrame(autoPanRequestRef.current);
-
-      // 不平移时，如果之前有平移过画布操作，自己处理选框，禁止系统处理
-      if (autoPanRequestRef.current) {
-        console.log('move-personal-pan');
-        handleAutoPan();
-        e.stopPropagation();
-      }
+    //这里帮我写一下不同方向时，更新一下left、top指定的坐标
+    if (directName === 'left-top') {
+      //  newLeft = left + scaledDx;
+      //  newTop = left + scaledDx;
     }
-  };
 
-  const handleAutoPan = () => {
-    const rubberDom = document.querySelector('.x6-widget-selection-rubberband') as HTMLElement;
-    if (!cavRef.current || !rubberDom) return;
 
-    const { width, height, moveX, moveY, scaledDx, scaledDy } = mouseMoveRef.current;
-
-    // 获取当前位置和尺寸
-    const style = window.getComputedStyle(rubberDom);
-    const currentX = parseFloat(style.left) || 0;
-    const currentY = parseFloat(style.top) || 0;
-
-    const newLeft = currentX + scaledDx;
-    const newTop = currentY + scaledDy;
+    // 更新定位位置
     rubberDom.style.left = `${newLeft}px`;
     rubberDom.style.top = `${newTop}px`;
 
-    // 注意：宽高应增加绝对偏移量（正数）
-    const newWidth = width + Math.abs(scaledDx);
-    const newHeight = height + Math.abs(scaledDy);
-    rubberDom.style.width = `${newWidth}px`;
+    // 调整大小
+    rubberDom.style.width = `${newWidth}px`; // 如果改变方向，要取绝对值，切更新left和top
     rubberDom.style.height = `${newHeight}px`;
 
-    // 更新存储的尺寸（保留moveX/Y用于其他逻辑）
-    Object.assign(mouseMoveRef.current, {
-      width: newWidth,
-      height: newHeight,
-      // 注意：这里不清除moveX/Y，因为它们可能在其他地方使用
-    });
+    Object.assign(mouseMoveRef.current, { clientX, clientY, left, top, translateX, translateY }); // 鼠标数据存储，移动距离清零
 
-    // 平移画布
-    if (isPanningRef.current) {
+    // 平移
+    if (scaledDx != 0 || scaledDy != 0) {
       cavRef.current.translateBy(scaledDx, scaledDy);
-      autoPanRequestRef.current = requestAnimationFrame(handleAutoPan);
     }
+
+    e.stopPropagation();
   };
+
+
+  // 修改框大小位置，以及平移操作
+  // eslint-disable-next-line @LV01.50/cmb-quality/complexity
 
   return (
     <div style={{
@@ -244,7 +216,7 @@ const X6RubberbandDemo: React.FC = () => {
       <div
         ref={refContainer}
         onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
+        // onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         style={{
           flex: 1,
