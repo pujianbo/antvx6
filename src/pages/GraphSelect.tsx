@@ -78,15 +78,10 @@ const X6RubberbandDemo: React.FC = () => {
   };
 
   const edgeThreshold = 50; // 距离边距多少触发
-  const panSpeed = 5; // 平移速度  
-  // 新增状态管理
+  const panSpeed = 6; // 平移速度  
+
   const mouseDownRef = useRef({ mouseDown: false, zoom: cavRef.current?.zoom(), clientX: 0, clientY: 0, left: 0, top: 0 }); // 鼠标按下时的数据
-  const mouseMoveRef = useRef({
-    clientX: 0 /* 鼠标移动时的x坐标 */,
-    clientY: 0 /* 鼠标移动时的y坐标 */,
-    translateX: 0 /* 画布平移的x方向距离 */,
-    translateY: 0 /* 画布平移的y方向距离 */,
-  }); // 存储画布数据
+  const mouseMoveRef = useRef({ clientX: 0, clientY: 0, translateX: 0, translateY: 0, }); // 存储按下移动的数据
   // 鼠标按下时修改静态变量
   const handleMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const { clientX, clientY } = e;
@@ -180,7 +175,6 @@ const X6RubberbandDemo: React.FC = () => {
     if (scaledDx != 0 || scaledDy != 0) {
       cavRef.current.translateBy(scaledDx, scaledDy);
     }
-
     e.stopPropagation();
   };
 
