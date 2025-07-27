@@ -79,7 +79,7 @@ const X6RubberbandDemo: React.FC = () => {
     }
   };
 
-  const edgeThreshold = 30; // 距离边距多少触发
+  const edgeThreshold = 0; // 距离边距多少触发，如果大于0，在边界内框选要关闭平移
   const panSpeed = 6; // 平移速度  
 
   const mouseDownRef = useRef({ mouseDown: false, zoom: cavRef.current?.zoom(), clientX: 0, clientY: 0, left: 0, top: 0 }); // 鼠标按下时的数据
@@ -93,7 +93,7 @@ const X6RubberbandDemo: React.FC = () => {
   const handleMouseUp = () => {
     console.log('mouse up');
     Object.assign(mouseDownRef.current, { mouseDown: false, left: 0, top: 0 });
-    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, translateX: 0, translateY: 0, directName: '' });
+    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, translateX: 0, translateY: 0, directName: '', stopLeft: 0, stopTop: 0 });
   };
 
   // 鼠标平移
@@ -182,12 +182,41 @@ const X6RubberbandDemo: React.FC = () => {
 
     //方向发生改变
     if (!isSameDirect) {
-
+      let isStop = false;
       newWidth = Math.abs(translateX + mouseMoveX);
       newHeight = Math.abs(translateY + mouseMoveY);
 
-      // 最小宽高的时候将关闭计算
-      if ((newWidth <= 100 && newHeight <= 100)) {
+      // 设置最小宽高
+      // newWidth = newWidth < 50 ? 50 : newWidth;
+      // newHeight = newHeight < 50 ? 50 : newHeight;
+
+      switch (agoDirectName) {
+        case 'right-bottom':
+          newLeft = left - translateX;
+          newTop = top - translateY;
+          break;
+        case 'right-top':
+          newLeft = left - translateX;
+          newTop = top + mouseMoveY;
+          isStop = clientX < agoCX - translateX || clientY > agoCY - translateY
+          break;
+        case 'left-bottom':
+          newLeft = left + mouseMoveX;
+          newTop = top - translateY;
+          isStop = clientX < agoCX - translateX || clientY < agoCY - translateY
+          break;
+        case 'left-top':
+          newLeft = left + mouseMoveX;
+          newTop = top + mouseMoveY;
+          isStop = clientX > agoCX - translateX || clientY > agoCY + translateY
+          break;
+      }
+      console.log(1111, JSON.stringify({ clientX, clientY, agoCX, agoCY, translateX, translateY }));
+      console.log(agoDirectName, agoCX - newWidth, agoCY - newHeight);
+
+      //鼠标超过框选起点阻止
+      if (isStop) {
+        console.log('过界阻止操作');
         if (stopLeft) {
           newLeft = stopLeft;
           newTop = stopTop
@@ -199,25 +228,6 @@ const X6RubberbandDemo: React.FC = () => {
         Object.assign(mouseMoveRef.current, { stopLeft: 0, stopTop: 0 });
       }
 
-      switch (agoDirectName) {
-        case 'right-bottom':
-          newLeft = left - translateX;
-          newTop = top - translateY;
-          break;
-        case 'right-top':
-          newLeft = left - translateX;
-          newTop = top + mouseMoveY;
-          break;
-        case 'left-bottom':
-          newLeft = left + mouseMoveX;
-          newTop = top - translateY;
-          console.log("newTop22", newTop, newWidth, newHeight);
-          break;
-        case 'left-top':
-          newLeft = left + mouseMoveX;
-          newTop = top + mouseMoveY;
-          break;
-      }
       // console.log(agoDirectName, directName, JSON.stringify({ left, top, translateX, translateY, mouseMoveX, mouseMoveY, newLeft, newTop }));
     }
 
@@ -231,8 +241,8 @@ const X6RubberbandDemo: React.FC = () => {
 
     Object.assign(mouseMoveRef.current, { clientX, clientY, left, top, translateX, translateY });
 
-    // 平移画布,进入平移边界，宽高大于边界，没有改变方向
-    if ((scaledDx != 0 || scaledDy != 0) && newWidth > edgeThreshold && newHeight > edgeThreshold && agoDirectName === directName) {
+    // 平移画布
+    if (scaledDx != 0 || scaledDy != 0) {
       cavRef.current.translateBy(scaledDx, scaledDy);
     }
     e.stopPropagation();
