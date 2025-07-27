@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Graph } from '@antv/x6';
 import { Selection } from '@antv/x6-plugin-selection';
+import { log } from 'node:console';
+import { right } from '@antv/x6/lib/registry/port-label-layout/side';
 
 const X6RubberbandDemo: React.FC = () => {
   const refContainer = useRef<HTMLDivElement>(null);
@@ -14,7 +16,7 @@ const X6RubberbandDemo: React.FC = () => {
     // 创建画布实例
     const canvGraph = new Graph({
       container: refContainer.current,
-      width: 1000,
+      width: 900,
       height: 800,
       grid: true,
     });
@@ -77,11 +79,11 @@ const X6RubberbandDemo: React.FC = () => {
     }
   };
 
-  const edgeThreshold = 50; // 距离边距多少触发
+  const edgeThreshold = 30; // 距离边距多少触发
   const panSpeed = 6; // 平移速度  
 
   const mouseDownRef = useRef({ mouseDown: false, zoom: cavRef.current?.zoom(), clientX: 0, clientY: 0, left: 0, top: 0 }); // 鼠标按下时的数据
-  const mouseMoveRef = useRef({ clientX: 0, clientY: 0, translateX: 0, translateY: 0, }); // 存储按下移动的数据
+  const mouseMoveRef = useRef({ clientX: 0, clientY: 0, translateX: 0, translateY: 0, directName: '', stopLeft: 0, stopTop: 0 }); // 存储按下移动的数据
   // 鼠标按下时修改静态变量
   const handleMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {
     const { clientX, clientY } = e;
@@ -91,7 +93,7 @@ const X6RubberbandDemo: React.FC = () => {
   const handleMouseUp = () => {
     console.log('mouse up');
     Object.assign(mouseDownRef.current, { mouseDown: false, left: 0, top: 0 });
-    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, translateX: 0, translateY: 0 });
+    Object.assign(mouseMoveRef.current, { clientX: 0, clientY: 0, translateX: 0, translateY: 0, directName: '' });
   };
 
   // 鼠标平移
@@ -129,7 +131,7 @@ const X6RubberbandDemo: React.FC = () => {
     }
 
     const { zoom = 1, clientX: agoCX, clientY: agoCY, left, top } = mouseDownRef.current;
-    const { translateX: agoTranslateX, translateY: agoTranslateY } = mouseMoveRef.current;
+    const { translateX: agoTranslateX, translateY: agoTranslateY, stopLeft, stopTop } = mouseMoveRef.current;
 
     // 没有靠近边界，且没有平移量的时候，用系统自带的框选功能
     if (dx === 0 && dy === 0 && agoTranslateX === 0 && agoTranslateY === 0) {
@@ -143,6 +145,12 @@ const X6RubberbandDemo: React.FC = () => {
     // 计算平移方向
     const directX = moveX > 0 ? 'right' : 'left';
     const directY = moveY > 0 ? 'bottom' : 'top';
+    const directName = `${directX}-${directY}`
+
+    //存储开始方向
+    if (!mouseMoveRef.current.directName) {
+      Object.assign(mouseMoveRef.current, { directName });
+    }
 
     // 缩放的平移量
     const scaledDx = Math.round(dx / zoom);
@@ -153,26 +161,79 @@ const X6RubberbandDemo: React.FC = () => {
     const translateX = agoTranslateX - scaledDx; // 当前平移水平距离
     const translateY = agoTranslateY - scaledDy; // 当前平移垂直距离
 
-    const newWidth = Math.abs(mouseMoveX + translateX);
-    const newHeight = Math.abs(mouseMoveY + translateY);
-
     // 调整定位：右下方向不需要实时更新定位，有偏移才更新。左上需要实时更新定位，不需要计算偏移量
-    const isLeftTop = directX === 'left' || directY === 'top';
-    let newLeft = isLeftTop ? left + mouseMoveX : left - translateX;
-    let newTop = isLeftTop ? top + mouseMoveY : top - translateY;
+    const isRightBotom = directName === 'right-bottom';
+
+    let newLeft = isRightBotom ? left - translateX : left + mouseMoveX;
+    let newTop = isRightBotom ? top - translateY : top + mouseMoveY;
+    let newWidth = Math.abs(mouseMoveX) + (isRightBotom ? translateX : - translateX);
+    let newHeight = Math.abs(mouseMoveY) + (isRightBotom ? translateY : -translateY);
+
+    if (directName === 'right-top') {
+      newLeft = left - translateX;
+      newWidth = Math.abs(mouseMoveX) + translateX;
+    } else if (directName === 'left-bottom') {
+      newTop = top - translateY;
+      newHeight = Math.abs(mouseMoveY) + translateY;
+    }
+
+    //方向发生改变
+    const { directName: agoDirectName } = mouseMoveRef.current //上面才赋值，不能移动
+    if (agoDirectName != directName) {
+
+      switch (agoDirectName) {
+        case 'right-bottom':
+          newLeft = left - translateX;
+          newTop = top - translateY;
+          break;
+        case 'right-top':
+          newLeft = left - translateX;
+          newTop = top + mouseMoveY;
+          break;
+        case 'left-bottom':
+          newLeft = left + mouseMoveX;
+          newTop = top - translateY;
+          console.log("newTop22", newTop, newWidth, newHeight);
+          break;
+        case 'left-top':
+          newLeft = left + mouseMoveX;
+          newTop = top + mouseMoveY;
+          break;
+      }
+
+      newWidth = Math.abs(translateX + mouseMoveX);
+      newHeight = Math.abs(translateY + mouseMoveY);
+
+      console.log(agoDirectName, directName, JSON.stringify({ left, top, translateX, translateY, mouseMoveX, mouseMoveY, newLeft, newTop }));
+    }
+
+    // 最小宽高的时候将关闭计算
+    if ((newWidth <= 100 && newHeight <= 100)) {
+      if (stopLeft) {
+        newLeft = stopLeft;
+        newTop = stopTop
+      }
+      Object.assign(mouseMoveRef.current, { stopLeft: newLeft, stopTop: newTop });
+      e.stopPropagation();
+      return
+    } else {
+      Object.assign(mouseMoveRef.current, { stopLeft: 0, stopTop: 0 });
+    }
+
+    // console.log("moving", JSON.stringify({ mouseMoveX, mouseMoveY, translateX, translateY, newWidth, newHeight }));
 
     // 修改定位
     rubberDom.style.left = `${newLeft}px`;
     rubberDom.style.top = `${newTop}px`;
 
     // 调整大小
-    rubberDom.style.width = `${newWidth}px`; // 如果改变方向，要取绝对值，切更新left和top
+    rubberDom.style.width = `${newWidth}px`;
     rubberDom.style.height = `${newHeight}px`;
 
-    Object.assign(mouseMoveRef.current, { clientX, clientY, left, top, translateX, translateY }); // 鼠标数据存储，移动距离清零
+    Object.assign(mouseMoveRef.current, { clientX, clientY, left, top, translateX, translateY });
 
-    // 平移画布
-    if (scaledDx != 0 || scaledDy != 0) {
+    // 平移画布,进入平移边界，宽高大于边界，没有改变方向
+    if ((scaledDx != 0 || scaledDy != 0) && newWidth > edgeThreshold && newHeight > edgeThreshold && agoDirectName === directName) {
       cavRef.current.translateBy(scaledDx, scaledDy);
     }
     e.stopPropagation();
