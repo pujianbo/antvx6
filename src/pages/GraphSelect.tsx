@@ -151,10 +151,13 @@ const X6RubberbandDemo: React.FC = () => {
     if (!mouseMoveRef.current.directName) {
       Object.assign(mouseMoveRef.current, { directName });
     }
+    const { directName: agoDirectName } = mouseMoveRef.current //上面才赋值，不能移动
 
-    // 缩放的平移量
-    const scaledDx = Math.round(dx / zoom);
-    const scaledDy = Math.round(dy / zoom);
+    const isSameDirect = directName === agoDirectName; // 判断方向是否一致
+
+    // 缩放的平移量，方向一致才平移
+    const scaledDx = isSameDirect ? Math.round(dx / zoom) : 0;
+    const scaledDy = isSameDirect ? Math.round(dy / zoom) : 0;
 
     const mouseMoveX = clientX - agoCX; // 鼠标水平总移动距离
     const mouseMoveY = clientY - agoCY; // 鼠标垂直总移动距离
@@ -178,8 +181,23 @@ const X6RubberbandDemo: React.FC = () => {
     }
 
     //方向发生改变
-    const { directName: agoDirectName } = mouseMoveRef.current //上面才赋值，不能移动
-    if (agoDirectName != directName) {
+    if (!isSameDirect) {
+
+      newWidth = Math.abs(translateX + mouseMoveX);
+      newHeight = Math.abs(translateY + mouseMoveY);
+
+      // 最小宽高的时候将关闭计算
+      if ((newWidth <= 100 && newHeight <= 100)) {
+        if (stopLeft) {
+          newLeft = stopLeft;
+          newTop = stopTop
+        }
+        Object.assign(mouseMoveRef.current, { stopLeft: newLeft, stopTop: newTop });
+        e.stopPropagation();
+        return
+      } else {
+        Object.assign(mouseMoveRef.current, { stopLeft: 0, stopTop: 0 });
+      }
 
       switch (agoDirectName) {
         case 'right-bottom':
@@ -200,27 +218,8 @@ const X6RubberbandDemo: React.FC = () => {
           newTop = top + mouseMoveY;
           break;
       }
-
-      newWidth = Math.abs(translateX + mouseMoveX);
-      newHeight = Math.abs(translateY + mouseMoveY);
-
-      console.log(agoDirectName, directName, JSON.stringify({ left, top, translateX, translateY, mouseMoveX, mouseMoveY, newLeft, newTop }));
+      // console.log(agoDirectName, directName, JSON.stringify({ left, top, translateX, translateY, mouseMoveX, mouseMoveY, newLeft, newTop }));
     }
-
-    // 最小宽高的时候将关闭计算
-    if ((newWidth <= 100 && newHeight <= 100)) {
-      if (stopLeft) {
-        newLeft = stopLeft;
-        newTop = stopTop
-      }
-      Object.assign(mouseMoveRef.current, { stopLeft: newLeft, stopTop: newTop });
-      e.stopPropagation();
-      return
-    } else {
-      Object.assign(mouseMoveRef.current, { stopLeft: 0, stopTop: 0 });
-    }
-
-    // console.log("moving", JSON.stringify({ mouseMoveX, mouseMoveY, translateX, translateY, newWidth, newHeight }));
 
     // 修改定位
     rubberDom.style.left = `${newLeft}px`;
